@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>3D Aquarium</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-family: Arial, sans-serif;
+            background: rgba(0,0,0,0.6);
+            padding: 8px 15px;
+            border-radius: 8px;
+            pointer-events: none;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        🐠 My 3D Aquarium | Drag to rotate
+    </div>
+
+    <!-- Load Three.js core and add-ons from CDN -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+        // --- Setup scene, camera, renderers ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x071a3b); // deep ocean blue
+        scene.fog = new THREE.FogExp2(0x071a3b, 0.008);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(5, 4, 8);
+        camera.lookAt(0, 0, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true; // shadows add depth
+        document.body.appendChild(renderer.domElement);
+
+        // CSS2 renderer for text labels
+        const labelRenderer = new CSS2DRenderer();
+        labelRenderer.setSize(window.innerWidth, window.innerHeight);
+        labelRenderer.domElement.style.position = 'absolute';
+        labelRenderer.domElement.style.top = '0px';
+        labelRenderer.domElement.style.left = '0px';
+        labelRenderer.domElement.style.pointerEvents = 'none';
+        document.body.appendChild(labelRenderer.domElement);
+
+        // --- Controls (so you can drag to look around) ---
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 1.0;
+        controls.enableZoom = true;
+        controls.enablePan = false;
+        controls.target.set(0, 1, 0);
+
+        // --- Lights ---
+        // Ambient light
+        const ambientLight = new THREE.AmbientLight(0x404060);
+        scene.add(ambientLight);
+        // Main directional light (sun)
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+        dirLight.position.set(3, 5, 2);
+        dirLight.castShadow = true;
+        dirLight.receiveShadow = true;
+        scene.add(dirLight);
+        // Fill light from below (simulate water reflection)
+        const fillLight = new THREE.PointLight(0x4466cc, 0.5);
+        fillLight.position.set(0, -2, 0);
+        scene.add(fillLight);
+        // Back rim light
+        const rimLight = new THREE.PointLight(0xffaa66, 0.4);
+        rimLight.position.set(-2, 2, -3);
+        scene.add(rimLight);
+
+        // --- Aquarium (a glass box) ---
+        // We'll make a transparent cube with visible edges
+        const boxSize = 5;
+        const boxGeometry = new THREE.BoxGeometry(boxSize, boxSize, boxSize);
+        const boxEdges = new THREE.EdgesGeometry(boxGeometry);
+        const boxFrame = new THREE.LineSegments(boxEdges, new THREE.LineBasicMaterial({ color: 0x88aaff }));
+        boxFrame.position.y = 0;
+        scene.add(boxFrame);
+
+        // Slightly tinted glass panels (invisible from outside but nice)
+        const glassMaterial = new THREE.MeshPhongMaterial({ color: 0xaaddff, transparent: true, opacity: 0.08 });
+        const glassBox = new THREE.Mesh(boxGeometry, glassMaterial);
+        glassBox.position.y = 0;
+        scene.add(glassBox);
+
+        // Sandy bottom
+        const sandGeometry = new THREE.BoxGeometry(4.8, 0.2, 4.8);
+        const sandMaterial = new THREE.MeshStandardMaterial({ color: 0xeedd99, roughness: 0.8, metalness: 0.1 });
+        const sandFloor = new THREE.Mesh(sandGeometry, sandMaterial);
+        sandFloor.position.set(0, -2.4, 0);
+        sandFloor.receiveShadow = true;
+        scene.add(sandFloor);
+
+        // A few pebbles (small spheres)
+        const pebbleMat = new THREE.MeshStandardMaterial({ color: 0xccaa88, roughness: 0.9 });
+        for (let i = 0; i < 60; i++) {
+            const pebble = new THREE.Mesh(new THREE.SphereGeometry(0.05 + Math.random()*0.07, 5), pebbleMat);
+            pebble.position.x = (Math.random() - 0.5) * 4.2;
+            pebble.position.z = (Math.random() - 0.5) * 4.2;
+            pebble.position.y = -2.3 + Math.random() * 0.1;
+            pebble.castShadow = true;
+            pebble.receiveShadow = false;
+            scene.add(pebble);
+        }
+
+        // --- Fish (simple spheres + cones for tail) ---
+        function makeFish(color, x, z, yOffset = 0) {
+            const group = new THREE.Group();
+            // Body
+            const bodyGeo = new THREE.SphereGeometry(0.28, 24, 24);
+            const bodyMat = new THREE.MeshStandardMaterial({ color: color, emissive: 0x221100, roughness: 0.3 });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.scale.set(1.2, 0.7, 0.9);
+            group.add(body);
+            // Tail (cone)
+            const tailGeo = new THREE.ConeGeometry(0.22, 0.45, 8);
+            const tailMat = new THREE.MeshStandardMaterial({ color: color });
+            const tail = new THREE.Mesh(tailGeo, tailMat);
+            tail.position.z = -0.55;
+            tail.rotation.x = 0.2;
+            tail.rotation.z = 0.1;
+            group.add(tail);
+            // Eye
+            const eyeGeo = new THREE.SphereGeometry(0.08, 16, 16);
+            const eyeMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+            const eye = new THREE.Mesh(eyeGeo, eyeMat);
+            eye.position.set(0.3, 0.15, 0.55);
+            group.add(eye);
+            const pupilGeo = new THREE.SphereGeometry(0.04, 16, 16);
+            const pupilMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
+            const pupil = new THREE.Mesh(pupilGeo, pupilMat);
+            pupil.position.set(0.33, 0.12, 0.65);
+            group.add(pupil);
+            
+            group.position.set(x, yOffset, z);
+            group.userData = { speedX: (Math.random() - 0.5) * 0.008, speedZ: (Math.random() - 0.5) * 0.008 };
+            return group;
+        }
+
+        const fishColors = [0xff6666, 0xffaa66, 0x66ffaa, 0xff66cc, 0x66ccff, 0xffaa88];
+        const fishes = [];
+        for (let i = 0; i < 12; i++) {
+            const color = fishColors[Math.floor(Math.random() * fishColors.length)];
+            const x = (Math.random() - 0.5) * 3.5;
+            const z = (Math.random() - 0.5) * 3.5;
+            const y = (Math.random() - 0.5) * 1.5;
+            const fish = makeFish(color, x, z, y);
+            scene.add(fish);
+            fishes.push(fish);
+        }
+
+        // --- Bubble particles (simple) ---
+        const bubbleGeo = new THREE.SphereGeometry(0.04, 8, 8);
+        const bubbleMat = new THREE.MeshStandardMaterial({ color: 0xaaffff, emissive: 0x2288aa, transparent: true, opacity: 0.7 });
+        const bubbles = [];
+        for (let i = 0; i < 80; i++) {
+            const bubble = new THREE.Mesh(bubbleGeo, bubbleMat);
+            bubble.position.set((Math.random() - 0.5) * 4.5, -2 + Math.random() * 4, (Math.random() - 0.5) * 4.5);
+            bubble.userData = { speed: 0.002 + Math.random() * 0.008 };
+            scene.add(bubble);
+            bubbles.push(bubble);
+        }
+
+        // --- CSS2D text label (floating) ---
+        const div = document.createElement('div');
+        div.textContent = '🐟✨ My Aquarium ✨🐠';
+        div.style.color = 'white';
+        div.style.fontSize = '20px';
+        div.style.fontWeight = 'bold';
+        div.style.textShadow = '1px 1px 0px #0055aa';
+        div.style.background = 'rgba(0,0,0,0.5)';
+        div.style.padding = '4px 12px';
+        div.style.borderRadius = '20px';
+        div.style.fontFamily = 'Arial';
+        const labelObj = new CSS2DObject(div);
+        labelObj.position.set(0, 2.2, 0);
+        scene.add(labelObj);
+
+        // --- Simple water caustics effect: moving light? we'll just animate fish and bubbles ---
+        
+        // --- Animation loop ---
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Move fish within bounds
+            fishes.forEach(fish => {
+                let newX = fish.position.x + fish.userData.speedX;
+                let newZ = fish.position.z + fish.userData.speedZ;
+                const limit = 2.3;
+                if (newX > limit) { newX = limit; fish.userData.speedX *= -1; }
+                if (newX < -limit) { newX = -limit; fish.userData.speedX *= -1; }
+                if (newZ > limit) { newZ = limit; fish.userData.speedZ *= -1; }
+                if (newZ < -limit) { newZ = -limit; fish.userData.speedZ *= -1; }
+                fish.position.x = newX;
+                fish.position.z = newZ;
+                // Slight y bobbing
+                fish.position.y += Math.sin(Date.now() * 0.003 + fish.position.x) * 0.002;
+                // Make fish face direction of movement
+                const angle = Math.atan2(fish.userData.speedX, fish.userData.speedZ);
+                fish.rotation.y = angle;
+            });
+            
+            // Bubbles rise
+            bubbles.forEach(bubble => {
+                bubble.position.y += bubble.userData.speed;
+                if (bubble.position.y > 2.3) {
+                    bubble.position.y = -2.2;
+                    bubble.position.x = (Math.random() - 0.5) * 4.2;
+                    bubble.position.z = (Math.random() - 0.5) * 4.2;
+                }
+            });
+            
+            // Auto-rotate controls (optional, but we enabled autoRotate in OrbitControls)
+            controls.update();
+            
+            // Render
+            renderer.render(scene, camera);
+            labelRenderer.render(scene, camera);
+        }
+        
+        animate();
+
+        // Handle window resize
+        window.addEventListener('resize', onWindowResize, false);
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            labelRenderer.setSize(window.innerWidth, window.innerHeight);
+        }
+    </script>
+</body>
+</html>
