@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bikini Bottom Aquarium - 2D</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #022b3a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Comic Sans MS', 'Chalkboard SE', cursive, sans-serif;
+        }
+        .container {
+            background: #0a4c6e;
+            border-radius: 20px;
+            padding: 10px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            border-radius: 16px;
+            box-shadow: 0 0 0 4px #f7d44a, 0 0 0 8px #8b5a2b;
+            cursor: grab;
+        }
+        canvas:active {
+            cursor: grabbing;
+        }
+        .info {
+            text-align: center;
+            margin-top: 12px;
+            color: #ffecb3;
+            text-shadow: 1px 1px 0 #1a5f7a;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+<div>
+    <div class="container">
+        <canvas id="aquariumCanvas" width="1000" height="600" style="width:1000px; height:600px"></canvas>
+    </div>
+    <div class="info">
+        🧽 Bikini Bottom Aquarium 🐟 | Click and drag to move the view! (2D edition)
+    </div>
+</div>
+
+<script>
+    (function() {
+        const canvas = document.getElementById('aquariumCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // ----- Viewport panning (for larger world) -----
+        let cameraX = 0, cameraY = 0;
+        let isDragging = false;
+        let dragStart = { x: 0, y: 0 };
+
+        // World dimensions (larger than canvas)
+        const WORLD_WIDTH = 2000;
+        const WORLD_HEIGHT = 1200;
+        
+        // Center world initially
+        cameraX = (WORLD_WIDTH - canvas.width) / 2;
+        cameraY = (WORLD_HEIGHT - canvas.height) / 2;
+        
+        // Clamp camera
+        function clampCamera() {
+            cameraX = Math.min(Math.max(cameraX, 0), WORLD_WIDTH - canvas.width);
+            cameraY = Math.min(Math.max(cameraY, 0), WORLD_HEIGHT - canvas.height);
+        }
+        
+        // Mouse events for dragging
+        canvas.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            dragStart.x = e.clientX;
+            dragStart.y = e.clientY;
+            canvas.style.cursor = 'grabbing';
+        });
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            const dx = e.clientX - dragStart.x;
+            const dy = e.clientY - dragStart.y;
+            cameraX -= dx;
+            cameraY -= dy;
+            clampCamera();
+            dragStart.x = e.clientX;
+            dragStart.y = e.clientY;
+        });
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+            canvas.style.cursor = 'grab';
+        });
+        canvas.style.cursor = 'grab';
+        
+        // ----- World coordinates drawing helpers -----
+        function drawWorld() {
+            // Clear with ocean gradient
+            const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            grad.addColorStop(0, '#0a6b8f');
+            grad.addColorStop(1, '#043b4c');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Save context and apply camera transformation
+            ctx.save();
+            ctx.translate(-cameraX, -cameraY);
+            
+            // ----- Sand floor (repeating) -----
+            ctx.fillStyle = '#f3d572';
+            for (let y = WORLD_HEIGHT - 120; y < WORLD_HEIGHT; y += 20) {
+                ctx.fillRect(0, y, WORLD_WIDTH, 20);
+            }
+            // Sand texture (dots)
+            ctx.fillStyle = '#d4a349';
+            for (let i = 0; i < 800; i++) {
+                ctx.beginPath();
+                ctx.arc(Math.random() * WORLD_WIDTH, WORLD_HEIGHT - 100 + Math.random() * 80, 2, 0, Math.PI*2);
+                ctx.fill();
+            }
+            
+            // ----- Background seaweed & rocks -----
+            ctx.fillStyle = '#2d6a4f';
+            for (let i = 0; i < 30; i++) {
+                let x = (i * 97) % WORLD_WIDTH;
+                ctx.beginPath();
+                ctx.moveTo(x, WORLD_HEIGHT - 110);
+                ctx.quadraticCurveTo(x+20, WORLD_HEIGHT-160, x-10, WORLD_HEIGHT-200);
+                ctx.quadraticCurveTo(x+15, WORLD_HEIGHT-230, x, WORLD_HEIGHT-260);
+                ctx.fill();
+            }
+            
+            // ----- Props / Buildings -----
+            // 1. Pineapple (SpongeBob's house)
+            ctx.save();
+            ctx.translate(350, WORLD_HEIGHT - 230);
+            ctx.fillStyle = '#f4a261';
+            ctx.beginPath();
+            ctx.moveTo(0, -70);
+            ctx.lineTo(40, -70);
+            ctx.lineTo(40, 0);
+            ctx.lineTo(0, 0);
+            ctx.fill();
+            ctx.fillStyle = '#e76f51';
+            ctx.beginPath();
+            ctx.moveTo(-10, -70);
+            ctx.lineTo(20, -100);
+            ctx.lineTo(50, -70);
+            ctx.fill();
+            ctx.fillStyle = '#2a9d8f';
+            for (let i=0;i<5;i++) {
+                ctx.beginPath();
+                ctx.moveTo(10+i*8, -85);
+                ctx.lineTo(15+i*8, -105);
+                ctx.lineTo(20+i*8, -85);
+                ctx.fill();
+            }
+            ctx.fillStyle = '#8b5a2b';
+            ctx.fillRect(12, -30, 16, 30);
+            ctx.fillStyle = '#ffcd94';
+            ctx.beginPath();
+            ctx.arc(20, -45, 8, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = '#2b2b2b';
+            ctx.beginPath();
+            ctx.arc(17, -47, 2, 0, Math.PI*2);
+            ctx.arc(23, -47, 2, 0, Math.PI*2);
+            ctx.fill();
+            ctx.restore();
+            
+            // 2. Squidward's Easter Island head
+            ctx.save();
+            ctx.translate(750, WORLD_HEIGHT - 190);
+            ctx.fillStyle = '#b5835a';
+            ctx.fillRect(0, -60, 50, 60);
+            ctx.fillStyle = '#8b5a2b';
+            ctx.beginPath();
+            ctx.ellipse(25, -30, 15, 20, 0, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = '#f5e6d3';
+            ctx.beginPath();
+            ctx.arc(15, -38, 5, 0, Math.PI*2);
+            ctx.arc(35, -38, 5, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = '#2b1e0e';
+            ctx.beginPath();
+            ctx.arc(13, -40, 2, 0, Math.PI*2);
+            ctx.arc(33, -40, 2, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = '#b5835a';
+            ctx.fillRect(20, -20, 10, 15);
+            ctx.restore();
+            
+            // 3. Krusty Krab (simplified)
+            ctx.save();
+            ctx.translate(1250, WORLD_HEIGHT - 210);
+            ctx.fillStyle = '#e09d32';
+            ctx.fillRect(0, -60, 80, 60);
+            ctx.fillStyle = '#b5651e';
+            ctx.fillRect(25, -80, 30, 25);
+            ctx.fillStyle = '#f5cb5c';
+            ctx.fillRect(30, -45, 20, 20);
+            ctx.fillStyle = '#8b4513';
+            ctx.fillRect(15, -20, 10, 20);
+            ctx.fillRect(55, -20, 10, 20);
+            ctx.fillStyle = '#d00000';
+            ctx.font = "bold 20px 'Comic Sans MS'";
+            ctx.fillText("KRUSTY", 15, -15);
+            ctx.fillText("KRAB", 45, -15);
+            ctx.restore();
+            
+            // 4. Patrick's rock
+            ctx.save();
+            ctx.translate(1650, WORLD_HEIGHT - 170);
+            ctx.fillStyle = '#8f8f8f';
+            ctx.beginPath();
+            ctx.ellipse(30, 0, 35, 25, 0, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = '#6b6b6b';
+            ctx.beginPath();
+            ctx.ellipse(15, -10, 10, 8, 0, 0, Math.PI*2);
+            ctx.ellipse(45, -10, 10, 8, 0, 0, Math.PI*2);
+            ctx.fill();
+            ctx.restore();
+            
+            // ----- CHARACTERS (all hand-drawn) -----
+            
+            // SpongeBob (yellow square with holes)
+            ctx.save();
+            ctx.translate(380, WORLD_HEIGHT - 180);
+            ctx.fillStyle = '#f7d44a';
+            ctx.fillRect(-25, -40, 50, 50);
+            ctx.fillStyle = '#e6b422';
+            for (let i=0;i<12;i++) {
+                ctx.beginPath();
+                ctx.arc(-15 + (i%4)*12, -25 + Math.floor(i/4)*12, 3, 0, Math.PI*2);
+                ctx.fill();
+            }
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(-10, -20, 6, 0, Math.PI*2);
+            ctx.arc(10, -20, 6, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(-12, -22, 2, 0, Math.PI*2);
+            ctx.arc(8, -22, 2, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = '#b33e2c';
+            ctx.beginPath();
+            ctx.ellipse(0, -5, 10, 6, 0, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = '#fff';
+            for(let i=0;i<2;i++) ctx.fillRect(-5+i*10, 5, 3, 8);
+            ctx.restore();
+            
+            // Patrick Star (pink star)
+            ctx.save();
+            ctx.translate(1680, WORLD_HEIGHT - 185);
+            ctx.fillStyle = '#f4acb7';
+            ctx.beginPath();
+            for (let i=0;i<5;i++) {
+                let angle = i * 72 * Math.PI/180;
+                let x1 = Math.cos(angle) * 25;
+                let y1 = Math.sin(angle) * 25;
+                let x2 = Math.cos(angle+36*Math.PI/180) * 12;
+                let y2 = Math.sin(angle+36*Math.PI/180) * 12;
+                if(i===0) ctx.moveTo(x1, y1);
+                else ctx.lineTo(x1, y1);
+                ctx.lineTo(x2, y2);
+            }
+            ctx.fill();
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(-8, -5, 2, 0, Math.PI*2);
+            ctx.arc(8, -5, 2, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = '#d62828';
+            ctx.beginPath();
+            ctx.ellipse(0, 5, 6, 4, 0, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = '#000';
+            ctx.fillRect(-3, 8, 6, 2);
+            ctx.restore();
+            
+            // Squidward (blue, tall nose)
+            ctx.save();
+            ctx.translate(770, WORLD_HEIGHT - 185);
+            ctx.fillStyle = '#6ab0de';
+            ctx.fillRect(-15, -45, 30, 50);
+            ctx.fillStyle = '#2e6f95';
+            ctx.beginPath();
+            ctx.moveTo(0, -55);
+            ctx.lineTo(-8, -35);
+            ctx.lineTo(8, -35);
+            ctx.fill();
+            ctx.fillStyle = '#f4f1de';
+            ctx.beginPath();
+            ctx.arc(-7, -20, 4, 0, Math.PI*2);
+            ctx.arc(7, -20, 4, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(-8, -22, 1.5, 0, Math.PI*2);
+            ctx.arc(6, -22, 1.5, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = '#b5651e';
+            ctx.fillRect(-2, -5, 4, 12);
+            ctx.fillStyle = '#a8dadc';
+            ctx.fillRect(-8, 5, 16, 5);
+            ctx.restore();
+            
+            // Mr. Krabs (red, claws)
+            ctx.save();
+            ctx.translate(1290, WORLD_HEIGHT - 190);
+            ctx.fillStyle = '#e63946';
+            ctx.beginPath();
+            ctx.ellipse(0, -15, 18, 22, 0, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = '#f1faee';
+            ctx.beginPath();
+            ctx.arc(-8, -25, 4, 0, Math.PI*2);
+            ctx.arc(8, -25, 4, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(-9, -27, 1.5, 0, Math.PI*2);
+            ctx.arc(7, -27, 1.5, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = '#1d3557';
+            ctx.fillRect(-12, -12, 24, 4);
+            ctx.fillStyle = '#d62828';
+            // claws
+            ctx.beginPath();
+            ctx.moveTo(-20, -10);
+            ctx.lineTo(-30, -20);
+            ctx.lineTo(-22, -5);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(20, -10);
+            ctx.lineTo(30, -20);
+            ctx.lineTo(22, -5);
+            ctx.fill();
+            ctx.fillStyle = '#f4a261';
+            ctx.fillRect(-5, 5, 10, 8);
+            ctx.restore();
+            
+            // Sandy Cheeks (squirrel with air helmet)
+            ctx.save();
+            ctx.translate(540, WORLD_HEIGHT - 195);
+            ctx.fillStyle = '#d4a373';
+            ctx.beginPath();
+            ctx.ellipse(0, -5, 12, 18, 0, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = '#fefae0';
+            ctx.beginPath();
+            ctx.arc(0, -18, 15, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = '#bc6c25';
+            ctx.fillRect(-3, -25, 6, 8);
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(-5, -20, 2, 0, Math.PI*2);
+            ctx.arc(5, -20, 2, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = '#e9c46a';
+            ctx.fillRect(-8, 2, 16, 6);
+            ctx.restore();
+            
+            // Plankton (tiny green)
+            ctx.save();
+            ctx.translate(450, WORLD_HEIGHT - 165);
+            ctx.fillStyle = '#2b9348';
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 8, 10, 0, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(-3, -2, 1, 0, Math.PI*2);
+            ctx.arc(3, -2, 1, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = '#ee6c4d';
+            ctx.fillRect(-1, 3, 2, 4);
+            ctx.restore();
+            
+            // Gary the Snail
+            ctx.save();
+            ctx.translate(620, WORLD_HEIGHT - 165);
+            ctx.fillStyle = '#f4d03f';
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 15, 10, 0, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = '#b5651e';
+            ctx.beginPath();
+            ctx.ellipse(-3, -5, 6, 8, 0, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = '#d35400';
+            ctx.fillRect(-12, -2, 24, 4);
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(-5, -8, 1, 0, Math.PI*2);
+            ctx.arc(1, -8, 1, 0, Math.PI*2);
+            ctx.fill();
+            ctx.restore();
+            
+            // ----- Moving elements (fish, bubbles, jellyfish) -----
+            // Animated fish (simple)
+            const time = Date.now() / 500;
+            for (let i = 0; i < 12; i++) {
+                let x = (i * 231 + time * 50) % WORLD_WIDTH;
+                let y = WORLD_HEIGHT - 250 + Math.sin(time + i) * 30;
+                ctx.fillStyle = ['#ffb703','#fb8500','#48cae4'][i%3];
+                ctx.beginPath();
+                ctx.ellipse(x, y, 12, 7, 0, 0, Math.PI*2);
+                ctx.fill();
+                ctx.fillStyle = '#000';
+                ctx.beginPath();
+                ctx.arc(x+4, y-2, 2, 0, Math.PI*2);
+                ctx.fill();
+            }
+            
+            // Bubbles
+            for (let i = 0; i < 40; i++) {
+                let bx = (i * 83 + time * 40) % WORLD_WIDTH;
+                let by = WORLD_HEIGHT - 100 - (i * 23 + time * 70) % 400;
+                ctx.beginPath();
+                ctx.arc(bx, by, 3, 0, Math.PI*2);
+                ctx.fillStyle = 'rgba(255,255,255,0.6)';
+                ctx.fill();
+            }
+            
+            // Jellyfish (floating)
+            for (let j = 0; j < 8; j++) {
+                let jx = (j * 311 + time * -20) % WORLD_WIDTH;
+                let jy = WORLD_HEIGHT - 380 + Math.sin(time + j*2) * 35;
+                ctx.fillStyle = '#c77dff';
+                ctx.beginPath();
+                ctx.moveTo(jx, jy);
+                ctx.quadraticCurveTo(jx+15, jy-20, jx+30, jy);
+                ctx.quadraticCurveTo(jx+15, jy-10, jx, jy);
+                ctx.fill();
+                ctx.fillStyle = '#e0aaff';
+                ctx.beginPath();
+                ctx.arc(jx+15, jy-15, 6, 0, Math.PI*2);
+                ctx.fill();
+            }
+            
+            ctx.restore(); // restore camera transform
+        }
+        
+        function animate() {
+            drawWorld();
+            requestAnimationFrame(animate);
+        }
+        
+        animate();
+    })();
+</script>
+</body>
+</html>
